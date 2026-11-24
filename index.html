@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fuzzy Logic Lab — Mamdani Controller</title>
+<style>
+/* DESIGN TOKENS — 4px spacing scale, 10px radius, indigo accent */
+:root{
+ color-scheme:light dark;
+ --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
+ --radius:10px;--radius-sm:6px;--border-width:1px;
+ --bg:#f5f7fb;--panel:#ffffff;--panel-2:#eef2f8;--ink:#172033;--muted:#526078;--line:#d9e0eb;
+ --accent:#4057c8;--accent-soft:#e9edff;--good:#16794b;--warn:#925300;--danger:#b42318;
+ --focus:var(--accent);--shadow-pop:0 12px 32px #15213b24;
+ --series-1:#0072b2;--series-2:#e69f00;--series-3:#009e73;--series-4:#cc79a7;--series-5:#d55e00;--series-6:#56b4e9;--series-7:#000000;
+ --bg-old:var(--bg);--good-old:var(--good);--bad:var(--danger);
+ --tabular:tabular-nums;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+ --bg:#101522;--panel:#192235;--panel-2:#222e43;--ink:#edf2ff;--muted:#b8c3d6;--line:#3b4962;
+ --accent:#9aabff;--accent-soft:#29365d;--good:#65d6a0;--warn:#ffd080;--danger:#ff8b85;
+ --shadow-pop:0 12px 32px #0008;--series-7:#ffffff;
+}}
+*{font-variant-numeric:tabular-nums}
+:focus{outline:none}
+:focus-visible{outline:2px solid var(--focus)!important;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}header{padding:20px max(18px,calc((100vw - 1440px)/2));background:var(--panel);border-bottom:1px solid var(--line)}h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px}h3{font-size:14px;margin:12px 0 6px}.muted,small{color:var(--muted)}main{max-width:1440px;margin:auto;padding:16px}.tabs,.controls,.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.tabs{margin:12px 0}.tab,button,select,input{font:inherit}button,.tab{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}button.primary,.tab.active{background:var(--accent);color:white;border-color:var(--accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #e4a72e;outline-offset:2px}.grid{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:12px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}.panel.wide{grid-column:1/-1}.field{display:grid;grid-template-columns:1fr 88px;gap:8px;align-items:center;margin:8px 0}.field input[type=range]{grid-column:1/-1;width:100%}input[type=number],select{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px;max-width:100%}input[type=number]{width:88px}canvas{width:100%;height:190px;display:block;border:1px solid var(--line);border-radius:8px;background:var(--bg)}.rule{padding:9px;border:1px solid var(--line);border-radius:8px;margin:8px 0}.bar{height:10px;background:var(--bg);border-radius:9px;overflow:hidden;border:1px solid var(--line)}.bar span{display:block;height:100%;background:repeating-linear-gradient(135deg,var(--accent),var(--accent) 5px,#91a9ef 5px,#91a9ef 9px)}.badge{border:1px solid var(--line);border-radius:99px;padding:3px 8px;font-size:12px}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn);background:#ffb00018;border:1px solid #d9902b;padding:9px;border-radius:8px}.step{border-left:4px solid var(--accent);padding:10px 12px;background:var(--bg);border-radius:5px;margin:8px 0}.step strong{display:block}.state{width:100%;border-collapse:collapse;font-size:13px}.state td,.state th{border-bottom:1px solid var(--line);padding:6px;text-align:left}.changed{font-weight:700;text-decoration:underline;text-decoration-style:double}.hide{display:none!important}.heat{display:grid;gap:2px;grid-template-columns:repeat(10,1fr)}.heat button{padding:0;aspect-ratio:1;border-radius:2px;font-size:9px;min-width:0}.footer{margin-top:14px}.compare{display:flex;gap:12px;flex-wrap:wrap}.compare span{padding:6px 9px;border:1px solid var(--line);border-radius:7px}.gloss{border-bottom:1px dotted var(--accent);cursor:help}.notice{font-size:12px;color:var(--muted)}@media(max-width:1000px){.grid{grid-template-columns:1fr 1fr}.grid .panel:nth-child(3){grid-column:1/-1}}@media(max-width:680px){.grid{grid-template-columns:1fr}.grid .panel:nth-child(3){grid-column:auto}main{padding:10px}}
+
+/* ================= DASHBOARD UI REFRESH ================= */
+body{letter-spacing:-.01em;background:var(--bg)}
+header{position:sticky;top:0;z-index:20;padding:14px clamp(16px,3vw,40px);display:flex;align-items:center;gap:18px;box-shadow:0 1px 0 var(--line);background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(12px)}
+header h1{font-size:20px;letter-spacing:-.04em;margin:0}
+header>div:nth-child(2){font-size:12px;max-width:520px}
+header .row{margin:0!important;margin-left:auto!important;align-items:center}
+main{max-width:1600px;padding:16px clamp(12px,2vw,28px) 28px}
+.tabs{position:sticky;top:64px;z-index:15;margin:0 -2px 14px;padding:8px 2px;background:var(--bg);border-bottom:1px solid var(--line)}
+.tab{font-weight:650;font-size:13px;padding:8px 14px;border-radius:8px;transition:background .18s ease,border-color .18s ease}
+.tab:not(.active):hover,button:not(.primary):hover{background:var(--panel-2);border-color:var(--accent)}
+.panel{border-radius:var(--radius);padding:14px;background:var(--panel);border-color:var(--line);box-shadow:0 1px 2px #16233a08;transition:border-color .18s ease}
+.panel h2{font-size:14px;letter-spacing:-.015em;display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.panel h2:after{content:"";height:1px;background:var(--line);flex:1}
+.grid{grid-template-columns:minmax(270px,1fr) minmax(300px,1.08fr) minmax(320px,1.12fr);gap:12px;align-items:start}
+.grid>.panel:nth-child(-n+3){min-height:400px}
+.grid>.panel:nth-child(4){background:var(--panel);border-top:3px solid var(--accent)}
+.grid>.panel:nth-child(5){background:var(--panel-2)}
+.field{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin:7px 0}
+.field label{font-weight:600;font-size:12px}
+input[type=range]{accent-color:var(--accent)}
+input[type=number],select{border-radius:7px;padding:7px 9px;background:var(--panel);border-color:var(--line);font-size:13px}
+label{font-size:12px;font-weight:600}
+.row.panel{gap:12px 16px;padding:12px 14px;border-radius:var(--radius);background:var(--panel-2)}
+.row.panel label{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.row.panel select{min-width:88px}
+button{font-weight:600;font-size:12px;border-radius:8px;transition:transform .15s ease,background .15s ease,border-color .15s ease}
+button:active{transform:translateY(1px)}
+button.primary{box-shadow:0 2px 5px #4057c822}
+.badge{font-weight:700;letter-spacing:.01em;background:var(--panel);padding:5px 10px}
+.rule{background:var(--bg);border-radius:8px;padding:10px 11px;margin:7px 0}
+.rule b{color:var(--accent)}
+.bar{height:7px;margin:7px 0 4px}
+#rules{max-height:245px;overflow:auto;padding-right:3px}
+#ruleEditor{max-height:205px;overflow:auto}
+#ruleEditor .rule{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;font-size:12px}
+#ruleEditor select{min-width:90px}
+#ruleEditor input{width:62px!important}
+#ruleEditor button{padding:5px 8px}
+canvas{border-radius:9px;background:var(--panel-2);border-color:var(--line)}
+#inputPlot{height:190px}
+#outputPlot{height:220px}
+#outputInfo{padding:10px 12px;background:var(--panel-2);border-radius:8px;margin-bottom:9px}
+#outputInfo p{margin:3px 0}
+#outputInfo strong{font-size:24px;letter-spacing:-.04em}
+.compare{gap:6px;margin-top:10px}
+.compare span{flex:1;min-width:100px;background:var(--panel-2);border-color:var(--line);font-size:11px}
+.compare b{font-size:14px;display:block}
+.controls{gap:7px}
+#stepPanel .step{background:var(--panel-2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px}
+#stepPanel .step strong{font-size:14px}
+#stepPanel .step p{margin:7px 0 0}
+#stepPanel .step p:first-of-type{font-family:var(--mono);font-size:12px;background:var(--bg);padding:7px 9px;border-radius:6px;overflow-wrap:anywhere}
+#stateTable{margin-top:10px;max-height:210px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.state{font-size:12px}
+.state th{position:sticky;top:0;background:var(--panel-2);font-weight:700}
+.state td,.state th{padding:8px 10px}
+#scrub{accent-color:var(--accent);margin:12px 0 3px}
+#mfEditor{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px}
+#mfEditor h3{grid-column:1/-1;margin:8px 0 0;font-size:13px}
+#mfEditor .row{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);gap:6px}
+#mfEditor .row b{min-width:54px}
+#mfEditor input{width:66px!important}
+.notice{line-height:1.45}
+.warn{border-radius:8px}
+.heat{gap:3px}
+.heat button{border:1px solid #0002;color:#172033;font-weight:700}
+#doctorHeat{max-width:720px}
+#verification{overflow:auto}
+#verification .state td:last-child{font-weight:800}
+#handCalc{margin-top:12px}
+#handCalc ol{padding-left:22px}
+#handCalc li{margin:7px 0}
+.gloss{padding-bottom:1px;font-weight:650}
+@media(min-width:1280px){
+ main{padding-bottom:24px}
+ .grid>.panel:nth-child(4){grid-column:1/-1}
+ .grid>.panel:nth-child(5){grid-column:1/-1}
+}
+@media(max-width:1279px){
+ header{flex-wrap:wrap}
+ .tabs{top:0}
+ .grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+ .grid>.panel:nth-child(3){grid-column:1/-1}
+ .grid>.panel:nth-child(4),.grid>.panel:nth-child(5){grid-column:1/-1}
+}
+@media(max-width:680px){
+ header{position:relative;padding:12px;gap:8px}
+ header>div:nth-child(2){order:3;flex-basis:100%}
+ header .row{margin-left:0!important}
+ main{padding:10px}
+ .tabs{top:0;overflow-x:auto;flex-wrap:nowrap}
+ .tab{white-space:nowrap}
+ .row.panel{align-items:stretch}
+ .row.panel label{justify-content:space-between;width:100%}
+ .grid{grid-template-columns:1fr}
+ .grid>.panel:nth-child(3){grid-column:auto}
+ .grid>.panel:nth-child(4),.grid>.panel:nth-child(5){grid-column:auto}
+ .grid>.panel:nth-child(-n+3){min-height:0}
+ #rules,#ruleEditor{max-height:none}
+ #mfEditor{grid-template-columns:1fr}
+ .controls button{flex:1}
+}
+@media print{
+ header,.tabs,.controls,#scrub,#mfEditor,.row.panel{display:none!important}
+ body,main{background:#fff;color:#111;max-width:none;padding:0}
+ .panel{box-shadow:none;break-inside:avoid;border:1px solid #aaa}
+ .grid{display:block}
+ .grid>.panel{margin:8px 0}
+}
+
+/* ================= PROFESSIONAL PRODUCT SHELL ================= */
+:root{--accent-strong:#3448b4;--success-bg:#e8f6ef;--warning-bg:#fff4df;--danger-bg:#ffeded}
+@media(prefers-color-scheme:dark){:root{--accent-strong:#a8b6ff;--success-bg:#15382c;--warning-bg:#44341b;--danger-bg:#492526}}
+body{background:var(--bg);color:var(--ink);font-size:13px}
+.app-topbar{height:68px;padding:0 clamp(16px,3vw,36px);gap:12px;background:var(--panel);border-bottom:1px solid var(--line);box-shadow:0 2px 10px #10182808}
+.brand-mark{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--accent);color:white;font-size:24px;font-weight:800}
+.brand-copy h1{font-size:17px;font-weight:750;letter-spacing:-.04em;line-height:1.2}.brand-copy .muted{font-size:11px;margin-top:3px}
+.brand-sep{padding:0 5px;color:var(--line)}.topbar-spacer{flex:1}
+.top-problem{display:flex;flex-direction:column;gap:2px;font-size:9px;letter-spacing:.1em;color:var(--muted);font-weight:800}
+.top-problem select{min-width:150px;font-size:12px;font-weight:650}
+.icon-button{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:9px;font-size:16px;background:var(--panel-2)}
+.test-status{padding:7px 11px;font-size:11px;white-space:nowrap}
+main{max-width:1680px;padding:18px clamp(14px,2.2vw,34px) 30px}
+.tabs{position:relative;top:auto;display:flex;gap:5px;margin:0 0 14px;padding:5px;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;width:max-content;max-width:100%;overflow-x:auto}
+.tab{border:1px solid transparent;background:transparent;padding:8px 13px;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap}
+.tab.active{background:var(--panel);color:var(--accent-strong);border-color:var(--line);box-shadow:0 1px 3px #10182812}
+.overview{margin:0 0 14px}.overview-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 9px}
+.overview-heading h2{font-size:19px;letter-spacing:-.04em;margin:1px 0 0}
+.eyebrow{font-size:9px;letter-spacing:.14em;font-weight:850;color:var(--accent);text-transform:uppercase}
+.live-indicator{font-size:10px;color:var(--good);font-weight:700;display:flex;align-items:center;gap:6px}
+.live-indicator i{width:7px;height:7px;background:var(--good);border-radius:50%;box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 15%,transparent)}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.kpi-card{min-height:88px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 13px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 1px 2px #10182808}
+.kpi-label{font-size:9px;letter-spacing:.1em;font-weight:800;color:var(--muted)}
+.kpi-card strong{font-size:23px;line-height:1.25;letter-spacing:-.045em;margin:3px 0;font-weight:760}
+.kpi-card small{font-size:10px;color:var(--muted)}.status-kpi strong{font-size:16px;color:var(--good)}
+.stage-track{display:flex;align-items:center;gap:8px;padding:12px 14px;margin-top:9px;background:var(--panel);border:1px solid var(--line);border-radius:11px}
+.stage-node{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;font-weight:650;white-space:nowrap}
+.stage-node b{display:grid;place-items:center;width:23px;height:23px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line);font-size:9px;color:var(--muted)}
+.stage-node.active{color:var(--accent-strong)}.stage-node.active b{background:var(--accent);color:white;border-color:var(--accent)}
+.stage-node.done b{background:var(--success-bg);border-color:var(--good);color:var(--good)}
+.stage-connector{height:1px;flex:1;min-width:8px;background:var(--line)}
+.grid{gap:12px;grid-template-columns:minmax(260px,1fr) minmax(280px,1.08fr) minmax(300px,1.12fr)}
+.grid>.panel:nth-child(-n+3){min-height:370px}
+.panel{padding:15px;border-radius:12px;box-shadow:0 1px 3px #10182808}
+.panel h2{font-size:13px;font-weight:800;letter-spacing:-.015em;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.panel h2:after{display:none}.panel h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}
+.field{background:var(--panel-2);border-color:transparent}.rule{background:var(--panel-2);border-color:var(--line)}
+#rules{max-height:220px}#ruleEditor{max-height:185px}
+#outputInfo{background:var(--panel-2)}#outputInfo strong{font-size:26px;color:var(--accent-strong)}
+.compare span{background:var(--panel-2);border-radius:8px;padding:8px 10px}.compare span b{font-size:15px}
+#stepPanel .step{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:9px}
+#stateTable{max-height:190px}#stateTable .state th{background:var(--panel-2)}
+.notice{font-size:10px}
+button,select,input{transition:background .16s ease,border-color .16s ease,box-shadow .16s ease}
+button:hover{border-color:var(--accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent)!important;outline-offset:2px}
+@media(min-width:1280px){.grid>.panel:nth-child(4),.grid>.panel:nth-child(5){grid-column:1/-1}}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){
+ .app-topbar{height:auto;min-height:62px;flex-wrap:wrap;padding:10px 12px}.topbar-spacer{display:none}.top-problem{margin-left:auto}
+ main{padding:12px}.tabs{width:100%;margin-bottom:12px}
+ .overview-heading h2{font-size:17px}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .kpi-card:last-child{grid-column:1/-1}.stage-track{overflow-x:auto;justify-content:flex-start}
+ .stage-node{font-size:10px}.stage-connector{min-width:12px}
+ .grid{grid-template-columns:1fr}.grid>.panel:nth-child(-n+3){min-height:0}
+ .grid>.panel:nth-child(3),.grid>.panel:nth-child(4),.grid>.panel:nth-child(5){grid-column:auto}
+}
+@media(max-width:420px){.brand-copy h1{font-size:15px}.brand-copy .muted{font-size:10px}.top-problem select{min-width:115px}
+ .kpi-card{padding:10px;min-height:78px}.kpi-card strong{font-size:20px}.stage-track{gap:5px;padding:9px}
+ .stage-node{gap:4px}.stage-node b{width:20px;height:20px}}
+
+:root[data-theme="light"]{color-scheme:light;--bg:#f5f7fb;--panel:#fff;--panel-2:#eef2f8;--ink:#172033;--muted:#526078;--line:#d9e0eb;--accent:#4057c8;--accent-strong:#3448b4;--good:#16794b;--warn:#925300;--danger:#b42318}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#101522;--panel:#192235;--panel-2:#222e43;--ink:#edf2ff;--muted:#b8c3d6;--line:#3b4962;--accent:#9aabff;--accent-strong:#a8b6ff;--good:#65d6a0;--warn:#ffd080;--danger:#ff8b85}
+
+/* ================= TYPOGRAPHY + COLOUR REFINEMENT ================= */
+:root{
+  --font-ui: "Inter", "Aptos", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Aptos Display", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-code: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --bg:#eef2f7;
+  --panel:#ffffff;
+  --panel-2:#e8edf5;
+  --ink:#17243a;
+  --muted:#52647d;
+  --line:#d4dce8;
+  --accent:#4f46e5;
+  --accent-strong:#3730a3;
+  --good:#087a55;
+  --warn:#925400;
+  --danger:#b42336;
+  --shadow-soft:0 3px 14px rgba(29,45,75,.055);
+}
+@media(prefers-color-scheme:dark){
+ :root{
+  --bg:#101827;--panel:#182438;--panel-2:#223149;
+  --ink:#edf3fc;--muted:#b5c3d8;--line:#34445d;
+  --accent:#9b9cff;--accent-strong:#c0c1ff;
+  --good:#65d6a0;--warn:#ffd080;--danger:#ff929b;
+  --shadow-soft:0 3px 16px rgba(0,0,0,.18);
+ }
+}
+:root[data-theme="light"]{
+ color-scheme:light;--bg:#eef2f7;--panel:#fff;--panel-2:#e8edf5;
+ --ink:#17243a;--muted:#52647d;--line:#d4dce8;--accent:#4f46e5;
+ --accent-strong:#3730a3;--good:#087a55;--warn:#925400;--danger:#b42336;
+}
+:root[data-theme="dark"]{
+ color-scheme:dark;--bg:#101827;--panel:#182438;--panel-2:#223149;
+ --ink:#edf3fc;--muted:#b5c3d8;--line:#34445d;--accent:#9b9cff;
+ --accent-strong:#c0c1ff;--good:#65d6a0;--warn:#ffd080;--danger:#ff929b;
+}
+html,body,button,input,select,textarea{
+ font-family:var(--font-ui);
+}
+body{font-size:13px;line-height:1.55;color:var(--ink);background:var(--bg)}
+h1,h2,h3,.kpi-card strong,.overview-heading h2{
+ font-family:var(--font-display);letter-spacing:-.035em;
+}
+h1{font-weight:760}
+h2{font-weight:720}
+h3{font-weight:700}
+.muted,.notice,small,.kpi-card small{color:var(--muted)}
+.brand-mark{background:linear-gradient(145deg,#625cf0,#3730a3);box-shadow:0 4px 12px rgba(79,70,229,.22)}
+.tab.active{color:var(--accent-strong);background:var(--panel);border-color:var(--line)}
+button.primary,.tab.active{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-strong)}
+.kpi-card{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow-soft)}
+.kpi-label,.eyebrow{letter-spacing:.12em}
+.kpi-card strong{color:var(--ink);font-weight:760}
+.status-kpi strong{color:var(--good)}
+.panel{background:var(--panel);border-color:var(--line);box-shadow:var(--shadow-soft)}
+.field,.rule,#outputInfo,#stepPanel .step{background:var(--panel-2)}
+input[type=number],select{background:var(--panel);color:var(--ink);border-color:var(--line)}
+canvas{background:var(--panel-2);border-color:var(--line)}
+.compare span{background:var(--panel-2);color:var(--ink)}
+#stepPanel .step p:first-of-type{font-family:var(--font-code);color:var(--ink)}
+.state th{background:var(--panel-2);color:var(--ink)}
+.badge{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.good{color:var(--good)}.bad{color:var(--danger)}
+.warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--panel));border-color:color-mix(in srgb,var(--warn) 40%,var(--line))}
+::selection{background:color-mix(in srgb,var(--accent) 25%,transparent);color:var(--ink)}
+
+/* ================= WARM IVORY + DEEP TEAL THEME ================= */
+:root{
+  color-scheme:light dark;
+  --bg:#f7f3eb;              /* warm ivory page background */
+  --panel:#fffdf8;           /* warm white cards */
+  --panel-2:#eee8dc;         /* soft sand surfaces */
+  --ink:#203047;             /* deep blue-charcoal text */
+  --muted:#526176;           /* readable slate secondary text */
+  --line:#ded6c8;            /* warm low-contrast borders */
+  --accent:#087f78;          /* deep teal accent */
+  --accent-strong:#075e59;
+  --good:#16734f;
+  --warn:#87520a;
+  --danger:#b42336;
+  --shadow-soft:0 3px 14px rgba(53,47,34,.06);
+}
+@media(prefers-color-scheme:dark){
+ :root{
+  --bg:#111d25;
+  --panel:#192a32;
+  --panel-2:#243941;
+  --ink:#f1f5f3;
+  --muted:#c0cfcb;
+  --line:#3b5358;
+  --accent:#5bc5b6;
+  --accent-strong:#8cddd1;
+  --good:#76d6a8;
+  --warn:#ffd080;
+  --danger:#ff929b;
+  --shadow-soft:0 3px 16px rgba(0,0,0,.22);
+ }
+}
+:root[data-theme="light"]{
+ color-scheme:light;
+ --bg:#f7f3eb;--panel:#fffdf8;--panel-2:#eee8dc;
+ --ink:#203047;--muted:#526176;--line:#ded6c8;
+ --accent:#087f78;--accent-strong:#075e59;
+ --good:#16734f;--warn:#87520a;--danger:#b42336;
+}
+:root[data-theme="dark"]{
+ color-scheme:dark;
+ --bg:#111d25;--panel:#192a32;--panel-2:#243941;
+ --ink:#f1f5f3;--muted:#c0cfcb;--line:#3b5358;
+ --accent:#5bc5b6;--accent-strong:#8cddd1;
+ --good:#76d6a8;--warn:#ffd080;--danger:#ff929b;
+}
+body{background:var(--bg);color:var(--ink)}
+header,.app-topbar{background:var(--panel);color:var(--ink)}
+.brand-mark{background:linear-gradient(145deg,#0c9488,#075e59);color:#fff}
+.tab.active{color:var(--accent-strong);border-color:var(--line)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-strong)}
+.kpi-card,.panel{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.kpi-card strong{color:var(--ink)}
+.kpi-label,.eyebrow{color:var(--muted)}
+.field,.rule,#outputInfo,#stepPanel .step,canvas{background:var(--panel-2);color:var(--ink)}
+input[type=number],select{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.compare span{background:var(--panel-2);color:var(--ink)}
+.state th{background:var(--panel-2);color:var(--ink)}
+.muted,.notice,small,.kpi-card small{color:var(--muted)}
+.status-kpi strong,.live-indicator{color:var(--good)}
+
+
+/* ================= PRODUCT POLISH: HIERARCHY, FEEDBACK & RESPONSIVE DETAIL ================= */
+:root{
+ --radius:14px;
+ --shadow-soft:0 5px 18px rgba(37,52,62,.055);
+ --focus-ring:color-mix(in srgb,var(--accent) 28%,transparent);
+}
+html{scroll-behavior:smooth}
+body{letter-spacing:-.012em}
+.app-topbar{position:sticky;top:0;z-index:40;min-height:68px}
+.brand-mark{font-family:Georgia,serif;font-size:25px;box-shadow:0 5px 14px color-mix(in srgb,var(--accent) 22%,transparent)}
+.brand-copy h1{font-size:18px}
+.top-problem{gap:5px}
+.top-problem select{height:36px}
+.test-status{border-radius:999px;padding:7px 12px;font-size:10px;letter-spacing:.025em}
+.tabs{position:sticky;top:68px;z-index:30;box-shadow:0 5px 14px rgba(32,48,71,.035)}
+.tab{border-radius:9px;transition:all .18s ease}
+.tab:hover{color:var(--accent-strong);background:color-mix(in srgb,var(--accent) 7%,var(--panel))}
+.tab.active{font-weight:800;box-shadow:0 2px 7px rgba(32,48,71,.08)}
+.overview{padding:2px 0 4px}
+.overview-heading{margin-bottom:12px}
+.overview-heading h2{font-size:22px}
+.kpi-grid{gap:11px}
+.kpi-card{position:relative;overflow:hidden;min-height:96px;padding:14px 15px;border-radius:13px;transition:transform .18s ease,box-shadow .18s ease}
+.kpi-card:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent);opacity:.7}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 9px 22px rgba(37,52,62,.09)}
+.kpi-card strong{font-size:25px;font-variant-numeric:tabular-nums}
+.status-kpi:before{background:var(--good)}
+.stage-track{border-radius:12px;padding:13px 16px;background:linear-gradient(110deg,var(--panel),color-mix(in srgb,var(--panel-2) 45%,var(--panel)))}
+.stage-node{gap:8px}
+.stage-node b{border-radius:8px;width:25px;height:25px}
+.stage-node.active b{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 13%,transparent)}
+.grid{gap:14px}
+.panel{border-radius:14px;padding:17px;box-shadow:var(--shadow-soft);transition:box-shadow .18s ease,border-color .18s ease}
+.panel:hover{border-color:color-mix(in srgb,var(--accent) 26%,var(--line))}
+.panel h2{font-size:13px;letter-spacing:-.01em;padding-bottom:12px;margin-bottom:14px}
+.panel h2:first-letter{color:var(--accent)}
+.field{border-radius:10px;padding:10px 12px;gap:10px;transition:border-color .16s ease,background .16s ease}
+.field:focus-within{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:color-mix(in srgb,var(--accent) 5%,var(--panel-2))}
+.field label{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.field input[type=range]{grid-column:1/-1;margin:5px 0 0;height:6px;cursor:pointer}
+input[type=range]{accent-color:var(--accent)}
+input[type=number],select{min-height:34px;border-radius:8px}
+button{min-height:34px;border-radius:9px}
+button.primary{box-shadow:0 3px 9px color-mix(in srgb,var(--accent) 22%,transparent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.rule{border-radius:10px;padding:11px 12px}
+.rule .bar{height:8px;border-radius:99px}
+.rule .bar span{border-radius:99px;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#fff))}
+#rules{max-height:260px;scrollbar-width:thin}
+#ruleEditor{max-height:230px;scrollbar-width:thin}
+#ruleEditor .rule{grid-template-columns:48px minmax(90px,1fr) auto auto;gap:8px}
+#ruleEditor input{min-height:32px}
+#outputInfo{border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+#outputInfo>strong{display:inline-block;margin-top:2px}
+#outputPlot,#inputPlot{border-radius:11px;overflow:hidden}
+.chart-legend{display:flex;flex-wrap:wrap;gap:7px 12px;margin:9px 1px 0;padding:0;list-style:none}
+.chart-legend li{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px;font-weight:650}
+.chart-legend i{display:inline-block;width:18px;height:0;border-top:2px solid var(--legend-color);border-top-style:var(--legend-style,solid)}
+.chart-legend li.aggregate{color:var(--ink);font-weight:800}
+.chart-legend li.aggregate i{border-top-width:4px}
+.compare span{border:1px solid var(--line);min-height:56px}
+.compare span b{margin-top:3px}
+#stepPanel .step{padding:14px 15px}
+#stepPanel .step strong{display:flex;align-items:center;gap:8px}
+#stateTable{border-radius:10px;scrollbar-width:thin}
+.state td,.state th{line-height:1.45}
+#mfEditor .row{border-radius:10px}
+#mfEditor .row input{min-height:31px}
+#doctor,#surface,#verify{border-radius:15px;padding:20px}
+#doctorHeat{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px}
+#doctorHeat button,#surfaceHeat button{min-height:32px;border-radius:5px;font-size:10px}
+#surfacePlot{width:100%;height:auto;max-height:520px;border-radius:12px}
+#surfaceHeat{display:grid;grid-template-columns:repeat(auto-fit,minmax(68px,1fr));gap:5px}
+#surfaceHeat button{padding:5px}
+#doctorNotes{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+#doctorNotes p{margin:5px 0}
+#verification{margin-top:12px}
+#verification .state{min-width:720px}
+#handCalc{padding:15px 18px;border-radius:11px}
+.notice{font-size:11px}
+:focus-visible{outline:3px solid var(--accent)!important;outline-offset:3px;box-shadow:0 0 0 5px var(--focus-ring)}
+@media(max-width:760px){
+ .app-topbar{position:relative}
+ .tabs{top:0;position:relative;box-shadow:none}
+ .overview-heading h2{font-size:19px}
+ .kpi-card{min-height:82px}
+ .stage-track{padding:10px;gap:6px}
+ .panel{padding:13px}
+ #doctor,#surface,#verify{padding:14px}
+ #doctorHeat{gap:3px}
+ #doctorHeat button{font-size:9px;min-height:27px}
+ #ruleEditor .rule{grid-template-columns:40px minmax(80px,1fr) auto auto}
+}
+@media(max-width:420px){
+ .test-status{font-size:9px;padding:6px 8px}
+ .top-problem{width:calc(100% - 96px);margin-left:0!important}
+ .top-problem select{width:100%}
+ .brand-copy h1{font-size:15px}
+ .kpi-card strong{font-size:19px}
+ .kpi-label{font-size:8px}
+ .stage-node span{font-size:9px}
+ .compare span{min-width:calc(50% - 6px)}
+ .controls button{min-width:0}
+}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto}
+ .kpi-card,.panel,.tab,button{transition:none!important}
+}
+@media print{
+ .app-topbar,.tabs{position:static;box-shadow:none}
+ .overview{break-inside:avoid}
+ .kpi-card{box-shadow:none}
+}
+
+
+/* Shortcut dialog */
+#shortcutDialog{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px}
+.shortcut-backdrop{position:absolute;inset:0;background:rgba(12,25,31,.48);backdrop-filter:blur(3px)}
+.shortcut-card{position:relative;width:min(420px,100%);padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 24px 70px rgba(0,0,0,.24)}
+.shortcut-card h2{font-size:21px;margin:5px 0 18px}
+.shortcut-card p{display:flex;align-items:center;gap:7px;padding:9px 0;border-bottom:1px solid var(--line);margin:0}
+.shortcut-card p span{margin-left:auto;color:var(--muted);font-size:12px}
+.shortcut-card kbd{min-width:28px;text-align:center;padding:4px 7px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--panel-2);font:600 11px var(--font-code)}
+.shortcut-close{position:absolute;right:14px;top:14px;width:32px;height:32px;padding:0;font-size:21px}
+.shortcut-card small{display:block;margin-top:16px}
+</style></head>
+<body>
+<header class="app-topbar">
+<div class="brand-mark" aria-hidden="true">ƒ</div>
+<div class="brand-copy"><h1>Fuzzy Logic Lab</h1><div class="muted">Mamdani controller <span class="brand-sep">/</span> Interactive workspace</div></div>
+<div class="topbar-spacer"></div>
+<label class="top-problem">ACTIVE MODEL <select id="topPreset" aria-label="Choose problem"><option>Room fan</option><option>Water-tank level</option><option>Custom</option></select></label>
+<button id="themeToggle" class="icon-button" type="button" aria-label="Toggle light and dark theme" title="Toggle theme">◐</button>
+<button id="helpButton" class="icon-button" type="button" aria-label="Show keyboard shortcuts" title="Keyboard shortcuts">?</button>
+<span class="badge test-status" id="testBadge">Running tests…</span>
+</header>
+<main>
+<nav class="tabs" aria-label="Lab sections"><button class="tab active" data-tab="lab">Controller lab</button><button class="tab" data-tab="doctor">Rule-base doctor</button><button class="tab" data-tab="surface">Control surface</button><button class="tab" data-tab="verify">Verification</button></nav>
+<section class="overview" aria-label="Controller overview">
+<div class="overview-heading"><div><span class="eyebrow">LIVE CONTROLLER</span><h2>Inference overview</h2></div><span class="live-indicator"><i></i> Engine ready</span></div>
+<div class="kpi-grid">
+<div class="kpi-card"><span class="kpi-label">CRISP OUTPUT</span><strong id="kpiOutput">—</strong><small id="kpiOutputUnit">Output value</small></div>
+<div class="kpi-card"><span class="kpi-label">RULES FIRED</span><strong id="kpiRules">—</strong><small>Active rules</small></div>
+<div class="kpi-card"><span class="kpi-label">STRONGEST RULE</span><strong id="kpiStrongest">—</strong><small id="kpiStrength">Firing strength</small></div>
+<div class="kpi-card"><span class="kpi-label">AGGREGATE AREA</span><strong id="kpiArea">—</strong><small>Output membership</small></div>
+<div class="kpi-card status-kpi"><span class="kpi-label">STATUS</span><strong id="kpiStatus">READY</strong><small id="kpiStatusText">Waiting for inference</small></div>
+</div>
+<div class="stage-track" aria-label="Inference stages">
+<div class="stage-node" data-stage="Fuzzification"><b>01</b><span>Fuzzify</span></div><div class="stage-connector"></div>
+<div class="stage-node" data-stage="Rule evaluation"><b>02</b><span>Evaluate</span></div><div class="stage-connector"></div>
+<div class="stage-node" data-stage="Implication"><b>03</b><span>Imply</span></div><div class="stage-connector"></div>
+<div class="stage-node" data-stage="Aggregation"><b>04</b><span>Aggregate</span></div><div class="stage-connector"></div>
+<div class="stage-node" data-stage="Defuzzification"><b>05</b><span>Defuzzify</span></div>
+</div>
+</section>
+<section id="lab">
+<div class="row panel" style="margin-bottom:12px"><label>Problem <select id="preset"><option>Room fan</option><option>Water-tank level</option><option>Custom</option></select></label><label>Defuzzifier <select id="defuzz"><option value="centroid">Centroid</option><option value="mom">Mean of maxima</option><option value="threshold">Threshold (provisional)</option></select></label><label>β <input id="beta" type="number" min="0" max="1" step=".05" value=".5" style="width:65px"></label><label>AND <select id="and"><option>min</option><option>product</option></select></label><label>OR <select id="or"><option>max</option><option>probsum</option></select></label><label>Implication <select id="impl"><option>min</option><option>product</option></select></label><label>Aggregation <select id="agg"><option>max</option><option>bounded</option></select></label><label>Input fuzzifier <select id="fuzz"><option>singleton</option><option>triangular</option><option>Gaussian</option></select></label><label>width / σ <input id="width" type="number" min=".01" step=".5" value="2" style="width:65px"></label><label>Grid <select id="resolution"><option>1001</option><option>2001</option><option>5001</option></select></label></div>
+<div class="grid">
+<article class="panel"><h2>1 · Inputs & fuzzification</h2><div id="inputs"></div><h3>Membership functions</h3><canvas id="inputPlot" width="600" height="210" aria-label="Input membership function plot"></canvas><div class="notice">Vertical marker = crisp input; dots = membership degrees. MF parameters are editable in the parameter editor below.</div></article>
+<article class="panel"><h2>2 · Rule evaluation</h2><div id="rules"></div><h3>Rule editor</h3><div id="ruleEditor"></div><div class="controls"><button id="addRule">+ Add rule</button><button id="breakRule">Break it (delete random rule)</button></div></article>
+<article class="panel"><h2>3–5 · Output & defuzzification</h2><div id="outputInfo"></div><canvas id="outputPlot" width="600" height="240" aria-label="Output membership functions, aggregate and crisp result"></canvas><div id="comparison" class="compare"></div></article>
+<article class="panel wide"><h2>Playback & trace</h2><div class="controls"><button id="play">▶ Play</button><button id="pause">Ⅱ Pause</button><button id="back">← Step back</button><button id="forward" class="primary">Step forward →</button><button id="nextStage">Next stage</button><button id="reset">Reset</button><label>Speed <input id="speed" type="range" min="1" max="10" value="5"></label></div><input id="scrub" type="range" min="0" max="1" value="0" style="width:100%" aria-label="Trace position"><div id="stepPanel"></div><div id="stateTable"></div><div class="notice">Shortcuts: Space = play/pause · ← / → = step · R = reset. Glossary: <span class="gloss" title="§3.3.2: strength at which a rule's antecedent is satisfied">firing strength</span> · <span class="gloss" title="§3.3.3: applying a firing strength to a consequent">implication</span> · <span class="gloss" title="§3.3.3: combining rule outputs">aggregation</span> · <span class="gloss" title="§3.3.3 Defuzzification: converting a fuzzy set to a crisp value">defuzzification</span></div></article>
+<article class="panel wide"><h2>Parameter editor</h2><div id="mfEditor"></div><div class="notice">Edit numeric MF parameters here; dragging vertices is intentionally not enabled in this build. Changes recalculate the controller and trace.</div></article>
+</div></section>
+<section id="doctor" class="hide panel"><h2>Rule-Base Doctor (§3.5)</h2><p class="muted">Completeness heatmap: red-hatched cells have maximum firing below ε. Click a cell to load its inputs into the stepper.</p><label>ε <input id="epsilon" type="number" min="0" max="1" step=".05" value=".1" style="width:70px"></label><div id="doctorHeat" class="heat" style="margin-top:12px"></div><div id="doctorNotes"></div></section>
+<section id="surface" class="hide panel"><h2>Control surface (§3.3.5)</h2><p class="muted">Live sampled input-to-output map. Select any cell to inspect its exact trace in the controller lab. The tilted view is a perspective-style 2-D projection.</p><canvas id="surfacePlot" width="900" height="440" aria-label="Control surface heatmap"></canvas><div id="surfaceHeat" class="heat" style="margin-top:10px"></div></section>
+<section id="verify" class="hide panel"><h2>Verification</h2><div class="controls"><button id="showCalc" class="primary">Show hand calculation</button></div><div id="verification"></div><div id="handCalc" class="step hide"></div></section>
+<script>
+"use strict";
+/* ================= ENGINE: pure membership, operators, inference, defuzzification ================= */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function mf(x,m){if(m.type==="gauss")return Math.exp(-.5*((x-m.mean)/m.sigma)**2);let [a,b,c,d]=m.type==="trap"?[m.a,m.b,m.c,m.d]:[m.a,m.b,m.c,m.c];if(m.type==="trap"){if(x<=a||x>=d)return (x===b||x===c)?1:0;if(x>=b&&x<=c)return 1;if(x<a||x>d)return 0;return x<b?(x-a)/(b-a):(d-x)/(d-c)}if(a===b&&x<=b)return 1;if(b===c&&x>=b)return 1;if(x<a||x>c)return 0;if(x===b)return 1;return x<b?(x-a)/(b-a):(c-x)/(c-b)}
+function andOp(a,b,op){return op==="product"?a*b:Math.min(a,b)}function orOp(a,b,op){return op==="probsum"?a+b-a*b:Math.max(a,b)}
+function implication(mu,w,op){return op==="product"?mu*w:Math.min(mu,w)}function aggregation(a,b,op){return op==="bounded"?Math.min(1,a+b):Math.max(a,b)}
+function integrate(x,y){let a=0;for(let i=1;i<x.length;i++)a+=(x[i]-x[i-1])*(y[i]+y[i-1])/2;return a}
+function defuzz(xs,ys,kind,beta){let max=Math.max(...ys);if(max<=0)return {status:"NO_RULE_FIRED",value:null,area:0,moment:0};if(kind==="mom"){let z=xs.filter((x,i)=>Math.abs(ys[i]-max)<=1e-9);return {status:"OK",value:z.reduce((a,b)=>a+b,0)/z.length,area:integrate(xs,ys),moment:0}}let yy=kind==="threshold"?ys.map(v=>v>=beta?v:0):ys;let area=integrate(xs,yy),moment=integrate(xs,xs.map((x,i)=>x*yy[i]));return area<=1e-15?{status:"NO_RULE_FIRED",value:null,area:0,moment:0}:{status:"OK",value:moment/area,area,moment}}
+function matchDegree(input,m,xs,fuzz,width){if(fuzz==="singleton")return mf(input,m);let best=0;for(let x of xs){let im=fuzz==="triangular"?Math.max(0,1-Math.abs(x-input)/width):Math.exp(-.5*((x-input)/width)**2);best=Math.max(best,Math.min(im,mf(x,m)))}return best}
+function evaluate(cfg,values){const out=cfg.output, n=+cfg.resolution, xs=Array.from({length:n},(_,i)=>out.min+(out.max-out.min)*i/(n-1)), memberships=[],fires=[],clips=[],trace=[];let step=0;
+cfg.inputs.forEach((inp,j)=>{const val=values[j];const mm=inp.sets.map(s=>matchDegree(val,s.mf,Array.from({length:n},(_,i)=>inp.min+(inp.max-inp.min)*i/(n-1)),cfg.fuzz,+cfg.width));memberships.push(mm);trace.push({id:++step,stage:"Fuzzification",title:`Fuzzify ${inp.name}`,changedValues:{input:val,memberships:mm},formulaWithNumbers:inp.sets.map((s,i)=>`${s.name} = ${mm[i].toFixed(3)}`).join("; "),plainText:`The input ${inp.name} is ${val}. It belongs to each linguistic set by the degrees shown; a value can partly belong to more than one set.`})});
+cfg.rules.forEach((r,k)=>{let vals=r.ants.map(a=>memberships[a.input][a.set]),f=vals.length?vals[0]:0;for(let i=1;i<vals.length;i++)f=r.join==="OR"?orOp(f,vals[i],cfg.or):andOp(f,vals[i],cfg.and);f*=r.weight??1;fires.push(clamp(f,0,1));trace.push({id:++step,stage:"Rule evaluation",title:`Evaluate rule R${k+1}`,ruleIndex:k,changedValues:{firing:fires[k]},formulaWithNumbers:`${r.ants.map(a=>memberships[a.input][a.set].toFixed(3)).join(r.join==="OR"?" OR ":" AND ")} → ${f.toFixed(3)}`,plainText:`Rule ${k+1} combines its antecedent degrees using ${r.join==="OR"?cfg.or:cfg.and}. Its firing strength is ${f.toFixed(3)}, so the rule is active to that degree.`})});
+cfg.rules.forEach((r,k)=>{const arr=xs.map(x=>{let s=out.sets[r.cons];return implication(mf(x,s.mf),fires[k],cfg.impl)});clips.push(arr);trace.push({id:++step,stage:"Implication",title:`Apply implication for R${k+1}`,ruleIndex:k,changedValues:{consequent:out.sets[r.cons].name,strength:fires[k]},formulaWithNumbers:`${cfg.impl==="min"?"min":"product"}(μ(${out.sets[r.cons].name}), ${fires[k].toFixed(3)})`,plainText:`The consequent ${out.sets[r.cons].name} is modified by firing strength ${fires[k].toFixed(3)}. ${cfg.impl==="min"?"Clipping caps its membership at that value.":"Scaling multiplies every membership value by the firing strength."}`})});
+const agg=xs.map((x,i)=>clips.reduce((v,a)=>aggregation(v,a[i],cfg.agg),0)),area=integrate(xs,agg);trace.push({id:++step,stage:"Aggregation",title:"Aggregate all rule outputs",changedValues:{area},formulaWithNumbers:`Area = ${area.toFixed(3)} (trapezoid integration)`,plainText:`All rule consequents are combined point by point using ${cfg.agg==="max"?"maximum":"bounded sum"}. The resulting fuzzy output has area ${area.toFixed(3)}.`});
+const crisp=defuzz(xs,agg,cfg.defuzz,+cfg.beta);const alternatives={centroid:defuzz(xs,agg,"centroid",cfg.beta),mom:defuzz(xs,agg,"mom",cfg.beta),threshold:defuzz(xs,agg,"threshold",+cfg.beta)};trace.push({id:++step,stage:"Defuzzification",title:"Convert aggregate to a crisp output",changedValues:{output:crisp.value,status:crisp.status,area:crisp.area},formulaWithNumbers:crisp.status==="OK"?`${cfg.defuzz==="centroid"?"moment / area":cfg.defuzz==="mom"?"mean of maximum x values":"centroid above β"} = ${crisp.value.toFixed(3)}`:"Area = 0 → NO_RULE_FIRED",plainText:crisp.status==="OK"?`The selected method produces ${crisp.value.toFixed(3)}. Different methods can return different values because they summarize the same fuzzy shape in different ways.`:"No rule produced any output membership. The aggregate area is zero, so there is no meaningful centroid or crisp output; division by zero is avoided."});
+return {xs,agg,clips,memberships,fires,crisp,alternatives,trace,area};}
+/* ================= PRESETS ================= */
+const tri=(a,b,c)=>({type:"tri",a,b,c}),room=()=>({name:"Room fan",inputs:[{name:"Temperature T (°C)",min:0,max:40,value:25,sets:[{name:"Cold",mf:tri(0,0,20)},{name:"Warm",mf:tri(10,20,30)},{name:"Hot",mf:tri(20,40,40)}]},{name:"Humidity H (%)",min:0,max:100,value:40,sets:[{name:"Dry",mf:tri(0,0,80)},{name:"Humid",mf:tri(20,100,100)}]}],output:{name:"Fan speed S (%)",min:0,max:100,sets:[{name:"Low",mf:tri(0,0,50)},{name:"Medium",mf:tri(25,50,75)},{name:"High",mf:tri(50,100,100)}]},rules:[{ants:[{input:0,set:0}],cons:0},{ants:[{input:0,set:1},{input:1,set:0}],cons:1},{ants:[{input:0,set:1},{input:1,set:1}],cons:2},{ants:[{input:0,set:2}],cons:2}]});
+const tank=()=>({name:"Water-tank level",inputs:[{name:"Error e",min:-10,max:10,value:3,sets:[{name:"NEG",mf:tri(-10,-10,0)},{name:"ZERO",mf:tri(-10,0,10)},{name:"POS",mf:tri(0,10,10)}]},{name:"Change de",min:-5,max:5,value:-1,sets:[{name:"NEG",mf:tri(-5,-5,0)},{name:"ZERO",mf:tri(-5,0,5)},{name:"POS",mf:tri(0,5,5)}]}],output:{name:"Valve change",min:-100,max:100,sets:[{name:"Close",mf:tri(-100,-100,0)},{name:"Hold",mf:tri(-50,0,50)},{name:"Open",mf:tri(0,100,100)}]},rules:[0,0,1,0,1,2,1,2,2].map((c,i)=>({ants:[{input:0,set:Math.floor(i/3)},{input:1,set:i%3}],cons:c}))});
+let cfg,values=[],result,idx=0,timer=null,initialRules=[];
+const opts=()=>({and:document.querySelector("#and").value,or:document.querySelector("#or").value,impl:document.querySelector("#impl").value==="min"?"min":"product",agg:document.querySelector("#agg").value,defuzz:document.querySelector("#defuzz").value,beta:document.querySelector("#beta").value,fuzz:document.querySelector("#fuzz").value,width:document.querySelector("#width").value,resolution:document.querySelector("#resolution").value});
+function recalc(){Object.assign(cfg,opts());result=evaluate(cfg,values);idx=Math.min(idx,result.trace.length);render()}
+function fmt(x){return x==null?"undefined":Number(x).toFixed(3)}
+/* ================= RENDERERS ================= */
+function plot(canvas,xs,series,marker=null){const c=canvas.getContext("2d"),w=canvas.width,h=canvas.height;c.clearRect(0,0,w,h);c.strokeStyle=getComputedStyle(document.body).getPropertyValue("--line");c.lineWidth=1;for(let j=0;j<5;j++){let y=12+j*(h-32)/4;c.beginPath();c.moveTo(35,y);c.lineTo(w-10,y);c.stroke()}const maxX=xs[xs.length-1],minX=xs[0],X=x=>35+(x-minX)/(maxX-minX)*(w-48),Y=y=>h-20-y*(h-38);series.forEach((s,k)=>{c.beginPath();c.strokeStyle=["#3157c8","#d97706","#16845b","#9b59b6","#b42318"][k%5];c.lineWidth=s.width||2;c.setLineDash(s.dash||[]);s.data.forEach((v,i)=>i?c.lineTo(X(xs[i]),Y(v)):c.moveTo(X(xs[i]),Y(v)));c.stroke();c.setLineDash([])});if(marker!=null){c.strokeStyle="#b42318";c.setLineDash([5,4]);c.beginPath();c.moveTo(X(marker),8);c.lineTo(X(marker),h-20);c.stroke();c.setLineDash([])}c.fillStyle=getComputedStyle(document.body).getPropertyValue("--muted");c.font="12px system-ui";c.fillText(minX.toFixed(0),35,h-4);c.fillText(maxX.toFixed(0),w-32,h-4);c.fillText("μ",8,15)}
+function render(){document.querySelector("#inputs").innerHTML=cfg.inputs.map((a,i)=>`<div class="field"><label>${a.name}<input aria-label="${a.name}" data-val="${i}" type="range" min="${a.min}" max="${a.max}" step="${(a.max-a.min)/200}" value="${values[i]}"></label><input aria-label="${a.name} numeric value" data-num="${i}" type="number" min="${a.min}" max="${a.max}" step=".1" value="${values[i]}"></div>`).join("");document.querySelectorAll("[data-val],[data-num]").forEach(el=>el.addEventListener("input",()=>{let i=+(el.dataset.val??el.dataset.num);values[i]=clamp(+el.value,cfg.inputs[i].min,cfg.inputs[i].max);idx=0;recalc()}));
+let rules=cfg.rules.map((r,k)=>`<div class="rule"><b>R${k+1}</b> IF ${r.ants.map(a=>`${cfg.inputs[a.input].sets[a.set].name}`).join(r.join==="OR"?" OR ":" AND ")} THEN ${cfg.output.sets[r.cons].name} <span class="muted">×${(r.weight??1).toFixed(2)}</span><div class="bar"><span style="width:${(result.fires[k]||0)*100}%"></span></div><small>Firing strength = ${fmt(result.fires[k]||0)}</small></div>`).join("");document.querySelector("#rules").innerHTML=rules||"No rules: no rule can fire.";
+document.querySelector("#ruleEditor").innerHTML=cfg.rules.map((r,k)=>`<div class="rule">R${k+1}: <select data-cons="${k}">${cfg.output.sets.map((s,i)=>`<option value="${i}" ${r.cons===i?"selected":""}>${s.name}</option>`).join("")}</select> weight <input data-weight="${k}" type="number" min="0" max="1" step=".05" value="${r.weight??1}"> <button data-del="${k}" aria-label="Delete rule ${k+1}">Delete</button></div>`).join("");document.querySelectorAll("[data-cons]").forEach(e=>e.onchange=()=>{cfg.rules[+e.dataset.cons].cons=+e.value;idx=0;recalc()});document.querySelectorAll("[data-weight]").forEach(e=>e.onchange=()=>{cfg.rules[+e.dataset.weight].weight=clamp(+e.value,0,1);idx=0;recalc()});document.querySelectorAll("[data-del]").forEach(e=>e.onclick=()=>{cfg.rules.splice(+e.dataset.del,1);idx=0;recalc()});
+const out=cfg.output,xs=result.xs;plot(document.querySelector("#outputPlot"),xs,[...out.sets.map((s,i)=>({data:xs.map(x=>mf(x,s.mf)),dash:[5,3]})),...result.clips.map(a=>({data:a,dash:[2,2]})),{data:result.agg,width:4}],result.crisp.value);
+document.querySelector("#outputInfo").innerHTML=`<b>${out.name}</b><p>Aggregate area: ${fmt(result.area)}</p><p>Output: <strong>${fmt(result.crisp.value)}</strong> ${result.crisp.status==="NO_RULE_FIRED"?'<span class="bad">NO_RULE_FIRED</span>':""}</p>${result.crisp.status==="NO_RULE_FIRED"?"<p class='warn'>The aggregate membership area is zero. No rule contributes an output, so a crisp result is undefined.</p>":""}`;
+document.querySelector("#comparison").innerHTML=["centroid","mom","threshold"].map(k=>`<span>${k==="mom"?"Mean of maxima":k==="threshold"?"Threshold β":"Centroid"}: <b>${fmt(result.alternatives[k].value)}</b></span>`).join("")+(cfg.defuzz==="threshold"?"<small>Provisional: centroid of aggregate region at or above β; verify against textbook.</small>":"");
+const inp=cfg.inputs[0],xx=Array.from({length:201},(_,i)=>inp.min+(inp.max-inp.min)*i/200);plot(document.querySelector("#inputPlot"),xx,inp.sets.map(s=>({data:xx.map(x=>mf(x,s.mf))})),values[0]);
+const trace=result.trace,active=trace.slice(0,idx),cur=trace[Math.max(0,idx-1)];document.querySelector("#scrub").max=trace.length;document.querySelector("#scrub").value=idx;document.querySelector("#stepPanel").innerHTML=cur?`<div class="step"><strong>${idx}/${trace.length} · ${cur.stage}: ${cur.title}</strong><p><b>Formula:</b> ${cur.formulaWithNumbers}</p><p>${cur.plainText}</p></div>`:"<p>Press Step forward to begin. The trace is replayed from stored engine results.</p>";
+let rows=[...cfg.inputs.map((a,i)=>`<tr><td>${a.name}</td><td>${values[i]}</td><td>${active.some(t=>t.stage==="Fuzzification")?cfg.inputs[i].sets.map((s,j)=>`${s.name}: ${fmt(result.memberships[i][j])}`).join(", "):"—"}</td></tr>`),...cfg.rules.map((r,k)=>`<tr><td>R${k+1} firing</td><td colspan="2">${active.some(t=>t.ruleIndex===k&&t.stage==="Rule evaluation")?fmt(result.fires[k]):"not evaluated"}</td></tr>`),`<tr><td>Aggregate area</td><td colspan="2">${idx>=cfg.inputs.length+cfg.rules.length*2+1?fmt(result.area):"not yet calculated"}</td></tr>`,`<tr><td>Crisp output</td><td colspan="2">${idx===trace.length?fmt(result.crisp.value):"not yet calculated"}</td></tr>`].join("");document.querySelector("#stateTable").innerHTML=`<table class="state"><thead><tr><th>Variable</th><th>Value</th><th>State / memberships</th></tr></thead><tbody>${rows}</tbody></table>`;
+document.querySelector("#mfEditor").innerHTML=cfg.inputs.map((a,i)=>`<h3>${a.name}</h3>${a.sets.map((s,j)=>mfFields(s.mf,`i${i}s${j}`,s.name)).join("")}`).join("")+`<h3>${out.name}</h3>${out.sets.map((s,j)=>mfFields(s.mf,`os${j}`,s.name)).join("")}`;document.querySelectorAll("[data-mf]").forEach(e=>e.onchange=()=>{let [kind,i,j,key]=e.dataset.mf.split(":");let m=kind==="o"?cfg.output.sets[+i].mf:cfg.inputs[+i].sets[+j].mf;m[key]=+e.value;idx=0;recalc()});
+drawDoctor();drawSurface()}
+function mfFields(m,id,name){let keys=m.type==="gauss"?["mean","sigma"]:m.type==="trap"?["a","b","c","d"]:["a","b","c"];return `<div class="row"><b>${name}</b> ${keys.map(k=>`${k} <input aria-label="${name} ${k}" data-mf="${id.startsWith("o")?"o:"+id.slice(2)+":": "i:"+id.slice(1).split("s")[0]+":"+id.slice(1).split("s")[1]+":"}${k}" type="number" step=".5" value="${m[k]}" style="width:72px">`).join("")}</div>`}
+/* ================= TRACE CONTROLS ================= */
+function step(d){idx=clamp(idx+d,0,result.trace.length);render()}document.querySelector("#forward").onclick=()=>step(1);document.querySelector("#back").onclick=()=>step(-1);document.querySelector("#reset").onclick=()=>{pause();idx=0;render()};document.querySelector("#scrub").oninput=e=>{idx=+e.target.value;render()};document.querySelector("#nextStage").onclick=()=>{let s=result.trace[Math.min(idx,result.trace.length-1)]?.stage;do{step(1)}while(idx<result.trace.length&&result.trace[idx]?.stage===s)};
+function pause(){if(timer)clearInterval(timer);timer=null}document.querySelector("#pause").onclick=pause;document.querySelector("#play").onclick=()=>{pause();timer=setInterval(()=>{if(idx>=result.trace.length){pause();return}step(1)},1100-+document.querySelector("#speed").value*95)};
+document.addEventListener("keydown",e=>{if(["INPUT","SELECT","TEXTAREA"].includes(document.activeElement.tagName))return;if(e.code==="Space"){e.preventDefault();timer?pause():document.querySelector("#play").click()}if(e.key==="ArrowRight")step(1);if(e.key==="ArrowLeft")step(-1);if(e.key.toLowerCase()==="r"){pause();idx=0;render()}});
+document.querySelectorAll("#lab select,#lab input").forEach(e=>{if(!e.dataset.val&&!e.dataset.num&&!e.dataset-mf)e.addEventListener("change",()=>{idx=0;recalc()})});
+document.querySelector("#addRule").onclick=()=>{cfg.rules.push({ants:[{input:0,set:0}],cons:0,weight:1});idx=0;recalc()};document.querySelector("#breakRule").onclick=()=>{if(cfg.rules.length){cfg.rules.splice(Math.floor(Math.random()*cfg.rules.length),1);idx=0;recalc()}};
+document.querySelector("#preset").onchange=e=>{cfg=e.target.value==="Water-tank level"?tank():e.target.value==="Custom"?{name:"Custom",inputs:[{name:"Input 1",min:0,max:10,value:5,sets:[{name:"Low",mf:tri(0,0,10)}]},{name:"Input 2",min:0,max:10,value:5,sets:[{name:"Low",mf:tri(0,0,10)}]}],output:{name:"Output",min:0,max:10,sets:[{name:"Output",mf:tri(0,5,10)}]},rules:[]} :room();values=cfg.inputs.map(a=>a.value);idx=0;recalc()};
+["and","or","impl","agg","defuzz","beta","fuzz","width","resolution"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{idx=0;recalc()}));
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));["lab","doctor","surface","verify"].forEach(id=>document.getElementById(id).classList.toggle("hide",id!==b.dataset.tab));if(b.dataset.tab==="verify")verification()});
+/* ================= RULE-BASE DOCTOR + CONTROL SURFACE ================= */
+function sample(x,y){return evaluate({...cfg,resolution:"1001",defuzz:"centroid"},[x,y])}
+function drawDoctor(){let a=cfg.inputs[0],b=cfg.inputs[1],el=document.querySelector("#doctorHeat"),html="";for(let j=9;j>=0;j--)for(let i=0;i<10;i++){let x=a.min+(a.max-a.min)*i/9,y=b.min+(b.max-b.min)*j/9,r=sample(x,y),mx=Math.max(0,...r.fires),gap=mx<+document.querySelector("#epsilon").value;html+=`<button title="${a.name}=${x.toFixed(1)}, ${b.name}=${y.toFixed(1)}; max firing ${mx.toFixed(2)}" style="background:${gap?'repeating-linear-gradient(135deg,#d33,#d33 3px,#fff 3px,#fff 6px)':'hsl('+(120*mx)+',55%,55%)'}" data-cell="${x},${y}">${mx.toFixed(1)}</button>`}el.innerHTML=html;el.querySelectorAll("button").forEach(b=>b.onclick=()=>{values=b.dataset.cell.split(",").map(Number);idx=0;document.querySelector('[data-tab="lab"]').click();recalc()});let duplicate=cfg.rules.some((r,i)=>cfg.rules.some((q,j)=>j>i&&JSON.stringify(r.ants)===JSON.stringify(q.ants)&&r.cons!==q.cons));document.querySelector("#doctorNotes").innerHTML=`<p>${html.includes("repeating")?"Red hatching indicates sampled uncovered/weak input combinations.":"No sampled coverage gaps."}</p><p>Identical antecedents with conflicting consequents: <b>${duplicate?"detected":"none detected"}</b>.</p><p class="notice">Continuity and overlap warnings are heuristic summaries; neighbouring sampled inputs can be inspected by clicking cells.</p>`}
+document.querySelector("#epsilon").onchange=drawDoctor;
+function drawSurface(){let a=cfg.inputs[0],b=cfg.inputs[1],can=document.querySelector("#surfacePlot"),c=can.getContext("2d");c.clearRect(0,0,can.width,can.height);let cells=[];for(let j=0;j<20;j++)for(let i=0;i<30;i++){let x=a.min+(a.max-a.min)*i/29,y=b.min+(b.max-b.min)*j/19,r=sample(x,y),v=r.crisp.value;cells.push({x,y,v});let hue=v==null?0:240-240*(v-cfg.output.min)/(cfg.output.max-cfg.output.min);c.fillStyle=v==null?"#888":`hsl(${hue},65%,55%)`;c.fillRect(45+i*27,15+(19-j)*20,26,19)}c.fillStyle=getComputedStyle(document.body).getPropertyValue("--ink");c.font="14px system-ui";c.fillText(`${a.name} → ${cfg.output.name}; ${b.name} varies vertically (tilted projection)`,45,430);let el=document.querySelector("#surfaceHeat");el.innerHTML=cells.filter((_,i)=>i%7===0).map(o=>`<button title="${o.x.toFixed(1)}, ${o.y.toFixed(1)} → ${fmt(o.v)}" data-xy="${o.x},${o.y}">${fmt(o.v)}</button>`).join("");el.querySelectorAll("button").forEach(x=>x.onclick=()=>{values=x.dataset.xy.split(",").map(Number);idx=0;document.querySelector('[data-tab="lab"]').click();recalc()})}
+/* ================= TESTS ================= */
+function tests(){let c=room(),r=evaluate({...c,...{and:"min",or:"max",impl:"min",agg:"max",defuzz:"centroid",beta:.5,fuzz:"singleton",width:2,resolution:2001}},[25,40]),close=(a,b,t)=>Math.abs(a-b)<=t;let t1=close(r.crisp.value,59.785,.05)&&r.fires.every((v,i)=>close(v,[0,.5,.25,.25][i],1e-9));let r2=evaluate({...c,and:"min",or:"max",impl:"min",agg:"max",defuzz:"centroid",beta:.5,fuzz:"singleton",width:2,resolution:2001},[35,90]);let t2=close(r2.crisp.value,82.5,.05)&&close(defuzz(r2.xs,r2.agg,"mom").value,93.75,.05);let r3=evaluate({...c,and:"min",or:"max",impl:"min",agg:"max",defuzz:"centroid",beta:.5,fuzz:"singleton",width:2,resolution:2001},[10,0]);let t3=close(r3.crisp.value,19.444,.05);let c4=room();c4.rules.pop();let r4=evaluate({...c4,and:"min",or:"max",impl:"min",agg:"max",defuzz:"centroid",beta:.5,fuzz:"singleton",width:2,resolution:2001},[35,90]);let t4=r4.crisp.status==="NO_RULE_FIRED";let tankCfg=tank(),base={and:"min",or:"max",impl:"min",agg:"max",defuzz:"centroid",beta:.5,fuzz:"singleton",width:2,resolution:2001};let p=evaluate({...tankCfg,...base},[3,-1]).crisp.value,q=evaluate({...tankCfg,...base},[-3,1]).crisp.value;let pos=evaluate({...tankCfg,...base},[8,0]).crisp.value;let t5=close(p,-q,1e-6)&&pos>0;return [{name:"1 · Room fan T=25, H=40",expected:"Firing [0,.5,.25,.25]; centroid 59.785; MoM 50",computed:`[${r.fires.map(x=>fmt(x)).join(", ")}]; ${fmt(r.crisp.value)}; ${fmt(defuzz(r.xs,r.agg,"mom").value)}`,pass:t1&&close(defuzz(r.xs,r.agg,"mom").value,50,.05)},{name:"2 · Room fan T=35, H=90",expected:"Firing [0,0,0,.75]; centroid 82.5; MoM 93.75",computed:`[${r2.fires.map(fmt).join(", ")}]; ${fmt(r2.crisp.value)}; ${fmt(defuzz(r2.xs,r2.agg,"mom").value)}`,pass:t2},{name:"3 · Room fan T=10, H=0",expected:"Firing [.5,0,0,0]; centroid 19.444; MoM 12.5",computed:`[${r3.fires.map(fmt).join(", ")}]; ${fmt(r3.crisp.value)}; ${fmt(defuzz(r3.xs,r3.agg,"mom").value)}`,pass:t3&&close(defuzz(r3.xs,r3.agg,"mom").value,12.5,.05)},{name:"4 · Delete R4; T=35, H=90",expected:"NO_RULE_FIRED",computed:r4.crisp.status,pass:t4},{name:"5 · Water-tank antisymmetry",expected:"f(3,-1) = -f(-3,1); f(8,0) > 0",computed:`${fmt(p)} vs ${fmt(q)}; f(8,0)=${fmt(pos)}`,pass:t5}]}
+function verification(){let ts=tests();document.querySelector("#verification").innerHTML=`<table class="state"><thead><tr><th>Test</th><th>Expected</th><th>Computed</th><th>Result</th></tr></thead><tbody>${ts.map(t=>`<tr><td>${t.name}</td><td>${t.expected}</td><td>${t.computed}</td><td class="${t.pass?"good":"bad"}">${t.pass?"PASS":"FAIL"}</td></tr>`).join("")}</tbody></table><p class="warn">Textbook example not yet added — Test 6 is a placeholder in the supplied specification and is not executable.</p><p>${ts.filter(t=>t.pass).length}/${ts.length} executable tests passing. Test tolerances: 0.05 for outputs; 1e-9 for memberships and firing strengths.</p>`}
+document.querySelector("#showCalc").onclick=()=>{let el=document.querySelector("#handCalc");el.classList.toggle("hide");el.innerHTML=`<b>Hand calculation · Test 1</b><ol><li>Fuzzification: T=25 → Cold=0, Warm=(30−25)/(30−20)=0.5, Hot=(25−20)/(40−20)=0.25. H=40 → Dry=(80−40)/(80−0)=0.5, Humid=(40−20)/(100−20)=0.25.</li><li>Rule evaluation: R1=0; R2=min(0.5,0.5)=0.5; R3=min(0.5,0.25)=0.25; R4=0.25.</li><li>Implication: Medium is clipped at 0.5; High is clipped at 0.25.</li><li>Aggregation: maximum combines the two consequents. Area=25.78125 and moment=1541.341 (rounded).</li><li>Defuzzification: 1541.341 / 25.78125 ≈ <b>59.785</b>. Mean of maxima is the midpoint of the plateau [37.5,62.5], hence 50.</li></ol><p>Computed engine centroid: <b>${fmt(tests()[0].computed.match(/; ([0-9.]+);/)[1])}</b> (shown above in the verification table).</p>`};
+cfg=room();values=cfg.inputs.map(x=>x.value);result=evaluate({...cfg,and:"min",or:"max",impl:"min",agg:"max",defuzz:"centroid",beta:.5,fuzz:"singleton",width:2,resolution:2001},values);verification();let all=tests(),passed=all.filter(x=>x.pass).length;document.querySelector("#testBadge").textContent=`${passed}/${all.length} tests passing`;document.querySelector("#testBadge").className="badge "+(passed===all.length?"good":"bad");render();
+
+/* UI enhancement layer — engine and trace builder are unchanged */
+(function(){
+ const preset=document.getElementById("preset"),topPreset=document.getElementById("topPreset");
+ if(topPreset&&preset){topPreset.value=preset.value;topPreset.addEventListener("change",()=>{preset.value=topPreset.value;preset.dispatchEvent(new Event("change"));});preset.addEventListener("change",()=>topPreset.value=preset.value);}
+ const themeBtn=document.getElementById("themeToggle");let themeMode="system";
+ if(themeBtn)themeBtn.addEventListener("click",()=>{themeMode=themeMode==="dark"?"light":"dark";document.documentElement.dataset.theme=themeMode;themeBtn.textContent=themeMode==="dark"?"☀":"☾";});
+ const help=document.getElementById("helpButton");if(help)help.addEventListener("click",()=>alert("Keyboard shortcuts\\n\\nSpace: Play / Pause\\n← / →: Step backward / forward\\nR: Reset trace"));
+ const baseRender=render;
+ render=function(){baseRender();updateOverview();};
+ function updateOverview(){
+  if(!result)return;
+  const fired=result.fires.filter(v=>v>0).length;
+  let strongest=-1;result.fires.forEach((v,i)=>{if(strongest<0||v>result.fires[strongest])strongest=i;});
+  const put=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  put("kpiOutput",result.crisp.value==null?"—":fmt(result.crisp.value));put("kpiOutputUnit",cfg.output.name);
+  put("kpiRules",`${fired} / ${cfg.rules.length}`);put("kpiStrongest",strongest>=0&&fired?`R${strongest+1}`:"—");
+  put("kpiStrength",strongest>=0&&fired?`Strength ${fmt(result.fires[strongest])}`:"No active rule");
+  put("kpiArea",fmt(result.area));put("kpiStatus",result.crisp.status==="NO_RULE_FIRED"?"NO RULE FIRED":"OPERATIONAL");
+  put("kpiStatusText",result.crisp.status==="NO_RULE_FIRED"?"Aggregate area is zero":"Inference completed");
+  const status=document.getElementById("kpiStatus");if(status)status.style.color=result.crisp.status==="NO_RULE_FIRED"?"var(--danger)":"var(--good)";
+  const stage=result.trace[Math.max(0,idx-1)]?.stage,order=["Fuzzification","Rule evaluation","Implication","Aggregation","Defuzzification"];
+  document.querySelectorAll(".stage-node").forEach(el=>{el.classList.toggle("active",el.dataset.stage===stage);el.classList.toggle("done",order.indexOf(el.dataset.stage)<order.indexOf(stage));});
+ }
+ updateOverview();
+})();
+
+
+/* ================= PRESENTATION ENHANCEMENTS — UI ONLY ================= */
+(function(){
+ const root=document.documentElement;
+ const plot=document.getElementById("outputPlot");
+ const canvasLegend=document.createElement("ul");
+ canvasLegend.className="chart-legend";
+ canvasLegend.setAttribute("aria-label","Output chart legend");
+ if(plot)plot.insertAdjacentElement("afterend",canvasLegend);
+
+ const oldRender=render;
+ render=function(){
+   oldRender();
+   updateLegend();
+   updateTabA11y();
+   const top=document.getElementById("topPreset"),main=document.getElementById("preset");
+   if(top&&main&&top.value!==main.value)top.value=main.value;
+ };
+ function updateLegend(){
+   if(!plot||!canvasLegend||!cfg||!result)return;
+   const palette=["#087f78","#c28a35","#5686a5","#a27ab0","#bd6c64"];
+   const entries=[
+     ...cfg.output.sets.map((s,i)=>({name:`${s.name} MF`,color:palette[i%palette.length],style:"dashed"})),
+     ...cfg.rules.map((r,i)=>({name:`R${i+1} output`,color:palette[i%palette.length],style:"dotted"})),
+     {name:"Aggregated output",color:"var(--accent-strong)",style:"solid",aggregate:true}
+   ];
+   canvasLegend.innerHTML=entries.map(e=>`<li class="${e.aggregate?"aggregate":""}" style="--legend-color:${e.color};--legend-style:${e.style}"><i></i>${e.name}</li>`).join("");
+ }
+ function updateTabA11y(){
+   document.querySelectorAll("[data-tab]").forEach(b=>{
+     const active=b.classList.contains("active");
+     b.setAttribute("aria-selected",String(active));
+     b.setAttribute("role","tab");
+     b.setAttribute("tabindex",active?"0":"-1");
+   });
+   const nav=document.querySelector(".tabs");
+   if(nav)nav.setAttribute("role","tablist");
+ }
+ updateLegend();updateTabA11y();
+
+ // Keep the visible input number and slider synchronized without touching inference logic.
+ document.addEventListener("input",e=>{
+   const t=e.target;
+   if(!t.matches("[data-val],[data-num]"))return;
+   const i=Number(t.dataset.val??t.dataset.num);
+   document.querySelectorAll(`[data-val="${i}"],[data-num="${i}"]`).forEach(peer=>{
+     if(peer!==t)peer.value=t.value;
+   });
+ });
+
+ // Keyboard shortcut help is presented as a compact in-page dialog, not a blocking alert.
+ let help=document.getElementById("helpButton");
+ if(help){const clean=help.cloneNode(true);help.replaceWith(clean);help=clean;help.addEventListener("click",()=>{
+   let dialog=document.getElementById("shortcutDialog");
+   if(dialog){dialog.remove();return;}
+   dialog=document.createElement("div");
+   dialog.id="shortcutDialog";
+   dialog.setAttribute("role","dialog");
+   dialog.setAttribute("aria-modal","true");
+   dialog.setAttribute("aria-labelledby","shortcutTitle");
+   dialog.innerHTML=`<div class="shortcut-backdrop" data-close></div><section class="shortcut-card"><button class="shortcut-close" type="button" aria-label="Close shortcuts">×</button><span class="eyebrow">QUICK HELP</span><h2 id="shortcutTitle">Keyboard shortcuts</h2><p><kbd>Space</kbd><span>Play / pause trace</span></p><p><kbd>←</kbd> <kbd>→</kbd><span>Step backward / forward</span></p><p><kbd>R</kbd><span>Reset trace to the beginning</span></p><small>Shortcuts are inactive while typing in a field.</small></section>`;
+   document.body.appendChild(dialog);
+   const close=()=>dialog.remove();
+   dialog.querySelector("[data-close]").addEventListener("click",close);
+   dialog.querySelector(".shortcut-close").addEventListener("click",close);
+   dialog.querySelector(".shortcut-close").focus();
+   dialog.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+ });}
+})();
+
+</script></main></body></html>
